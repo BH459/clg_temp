@@ -207,8 +207,10 @@ module.exports.logoutAdmin = async (req, res) => {
   try {
     res.clearCookie('adminToken', {
       httpOnly: true,
+
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     });
 
     return res.status(200).json({
@@ -224,8 +226,6 @@ module.exports.logoutAdmin = async (req, res) => {
     });
   }
 };
-
-
 
 // ==========================================
 // ADMIN LOGIN
@@ -281,8 +281,14 @@ module.exports.loginAdmin = async (req, res) => {
     // ==========================================
     res.cookie('adminToken', token, {
       httpOnly: true,
+
+      // HTTPS in production, HTTP on localhost
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+
+      // Localhost: lax
+      // Production frontend/backend on different sites: none
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+
       maxAge: 2 * 60 * 60 * 1000, // 2 hours
     });
 
