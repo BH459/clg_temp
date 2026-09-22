@@ -53,8 +53,6 @@ module.exports.loginCaptain = async (req, res) => {
 
     try {
 
-        console.log("LOGIN BODY:", req.body);
-
         const errors = validationResult(req);
 
         if (!errors.isEmpty()) {
@@ -71,8 +69,6 @@ module.exports.loginCaptain = async (req, res) => {
             })
             .select("+password");
 
-        console.log("CAPTAIN:", captain);
-
         // ==========================================
         // CAPTAIN NOT FOUND
         // ==========================================
@@ -87,8 +83,6 @@ module.exports.loginCaptain = async (req, res) => {
         // ==========================================
         const isMatch =
             await captain.comparePassword(password);
-
-        console.log("PASSWORD MATCH:", isMatch);
 
         if (!isMatch) {
             return res.status(401).json({
@@ -141,8 +135,6 @@ module.exports.loginCaptain = async (req, res) => {
 
     } catch (error) {
 
-        console.log("LOGIN ERROR:", error);
-
         return res.status(500).json({
             message: error.message
         });
@@ -174,9 +166,6 @@ module.exports.logoutCaptain = async (req, res, next) => {
 module.exports.updateStats = async (req, res) => {
     try {
 
-        console.log("REQ CAPTAIN:", req.captain);
-        console.log("FARE:", req.body.fare);
-
         const captain = req.captain;
 
         captain.totalEarnings =
@@ -188,16 +177,12 @@ module.exports.updateStats = async (req, res) => {
 
         await captain.save();
 
-        console.log("UPDATED CAPTAIN:", captain);
-
         res.status(200).json({
             success: true,
             captain
         });
 
     } catch (error) {
-
-        console.log("UPDATE STATS ERROR:", error);
 
         res.status(500).json({
             success: false,

@@ -12,9 +12,6 @@ module.exports.authUser = async (req, res, next) => {
     const token =
       req.cookies?.token || req.headers.authorization?.split(' ')[1];
 
-    console.log('\n========== AUTH USER ==========');
-    console.log('TOKEN EXISTS:', !!token);
-
     if (!token) {
       return res.status(401).json({
         error: 'Unauthorized - No Token',
@@ -24,16 +21,12 @@ module.exports.authUser = async (req, res, next) => {
     const isBlacklisted = await blacklistTokenModel.findOne({ token });
 
     if (isBlacklisted) {
-      console.log('USER TOKEN BLACKLISTED');
-
       return res.status(401).json({
         error: 'Token Blacklisted',
       });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    console.log('USER DECODED:', decoded);
 
     const user = await userModel.findById(decoded._id);
 
@@ -44,8 +37,6 @@ module.exports.authUser = async (req, res, next) => {
     }
 
     req.user = user;
-
-    console.log('USER AUTH SUCCESS:', user._id);
 
     next();
   } catch (error) {
@@ -62,12 +53,8 @@ module.exports.authUser = async (req, res, next) => {
 // ===============================
 module.exports.authCaptain = async (req, res, next) => {
   try {
-    console.log('\n========== AUTH CAPTAIN ==========');
-
     const token =
       req.cookies?.token || req.headers.authorization?.split(' ')[1];
-
-    console.log('TOKEN EXISTS:', !!token);
 
     if (!token) {
       return res.status(401).json({
@@ -77,8 +64,6 @@ module.exports.authCaptain = async (req, res, next) => {
 
     const isBlacklisted = await blacklistTokenModel.findOne({ token });
 
-    console.log('BLACKLISTED:', !!isBlacklisted);
-
     if (isBlacklisted) {
       return res.status(401).json({
         error: 'Token Blacklisted',
@@ -87,21 +72,15 @@ module.exports.authCaptain = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log('CAPTAIN DECODED:', decoded);
-
     const captain = await captainModel.findById(decoded._id);
 
     if (!captain) {
-      console.log('CAPTAIN NOT FOUND');
-
       return res.status(401).json({
         error: 'Captain Not Found',
       });
     }
 
     req.captain = captain;
-
-    console.log('CAPTAIN AUTH SUCCESS:', captain._id);
 
     next();
   } catch (error) {
@@ -118,12 +97,8 @@ module.exports.authCaptain = async (req, res, next) => {
 // ===============================
 module.exports.authAdmin = async (req, res, next) => {
   try {
-    console.log('\n========== AUTH ADMIN ==========');
-
     const token =
       req.cookies?.adminToken || req.headers.authorization?.split(' ')[1];
-
-    console.log('ADMIN TOKEN EXISTS:', !!token);
 
     // ==========================================
     // NO TOKEN
@@ -140,8 +115,6 @@ module.exports.authAdmin = async (req, res, next) => {
     // ==========================================
     const isBlacklisted = await blacklistTokenModel.findOne({ token });
 
-    console.log('ADMIN TOKEN BLACKLISTED:', !!isBlacklisted);
-
     if (isBlacklisted) {
       return res.status(401).json({
         success: false,
@@ -153,8 +126,6 @@ module.exports.authAdmin = async (req, res, next) => {
     // VERIFY JWT
     // ==========================================
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    console.log('ADMIN DECODED:', decoded);
 
     // ==========================================
     // CHECK ADMIN ROLE
@@ -172,8 +143,6 @@ module.exports.authAdmin = async (req, res, next) => {
     const admin = await adminModel.findById(decoded.id);
 
     if (!admin) {
-      console.log('ADMIN NOT FOUND');
-
       return res.status(401).json({
         success: false,
         message: 'Admin account not found',
@@ -184,8 +153,6 @@ module.exports.authAdmin = async (req, res, next) => {
     // ATTACH ADMIN TO REQUEST
     // ==========================================
     req.admin = admin;
-
-    console.log('ADMIN AUTH SUCCESS:', admin._id);
 
     next();
   } catch (error) {

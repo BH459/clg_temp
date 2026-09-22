@@ -16,13 +16,6 @@ module.exports.createRide = async (req, res) => {
   }
 
   try {
-    console.log('\n========== CREATE RIDE ==========');
-
-    console.log('USER ID:', req.user?._id);
-    console.log('PICKUP:', req.body.pickup);
-    console.log('DESTINATION:', req.body.destination);
-    console.log('VEHICLE:', req.body.vehicleType);
-
     if (!req.user?._id) {
       return res.status(401).json({
         message: 'User authentication missing',
@@ -38,8 +31,6 @@ module.exports.createRide = async (req, res) => {
 
       vehicleType: req.body.vehicleType,
     });
-
-    console.log('RIDE CREATED:', ride._id);
 
     return res.status(201).json(ride);
   } catch (error) {
@@ -95,12 +86,7 @@ module.exports.acceptRide = async (req, res) => {
   }
 
   try {
-    console.log('\n========== ACCEPT RIDE ==========');
-
     const { rideId } = req.body;
-
-    console.log('RIDE ID:', rideId);
-    console.log('CAPTAIN ID:', req.captain?._id);
 
     // IMPORTANT:
     // authCaptain stores captain in req.captain
@@ -137,12 +123,6 @@ module.exports.acceptRide = async (req, res) => {
       });
     }
 
-    console.log('RIDE ACCEPTED:', ride._id);
-
-    console.log('STATUS:', ride.status);
-
-    console.log('CAPTAIN:', ride.captain?._id);
-
     return res.status(200).json({
       success: true,
       ride,
@@ -170,13 +150,7 @@ module.exports.verifyOtp = async (req, res) => {
   }
 
   try {
-    console.log('\n========== VERIFY OTP ==========');
-
     const { rideId, otp } = req.body;
-
-    console.log('RIDE ID:', rideId);
-    console.log('OTP:', otp);
-    console.log('CAPTAIN ID:', req.captain?._id);
 
     if (!req.captain?._id) {
       return res.status(401).json({
@@ -209,8 +183,6 @@ module.exports.verifyOtp = async (req, res) => {
       });
     }
 
-    console.log('CURRENT STATUS:', ride.status);
-
     if (ride.status !== 'accepted') {
       return res.status(400).json({
         message: `Ride cannot start. Current status: ${ride.status}`,
@@ -218,8 +190,6 @@ module.exports.verifyOtp = async (req, res) => {
     }
 
     if (ride.otp !== otp) {
-      console.log('INVALID OTP');
-
       return res.status(400).json({
         message: 'Invalid OTP',
       });
@@ -229,8 +199,6 @@ module.exports.verifyOtp = async (req, res) => {
     ride.status = 'ongoing';
 
     await ride.save();
-
-    console.log('RIDE STATUS UPDATED:', ride.status);
 
     return res.status(200).json({
       success: true,
@@ -259,13 +227,7 @@ module.exports.completeRide = async (req, res) => {
   }
 
   try {
-    console.log('\n========== COMPLETE RIDE ==========');
-
     const { rideId } = req.body;
-
-    console.log('RIDE ID:', rideId);
-
-    console.log('CAPTAIN ID:', req.captain?._id);
 
     // IMPORTANT
     // authCaptain => req.captain
@@ -287,16 +249,10 @@ module.exports.completeRide = async (req, res) => {
       .populate('captain');
 
     if (!ride) {
-      console.log('RIDE NOT FOUND');
-
       return res.status(404).json({
         message: 'Ride not found',
       });
     }
-
-    console.log('CURRENT RIDE STATUS:', ride.status);
-
-    console.log('RIDE CAPTAIN:', ride.captain?._id);
 
     // Captain missing
     if (!ride.captain) {
@@ -307,8 +263,6 @@ module.exports.completeRide = async (req, res) => {
 
     // Verify captain
     if (ride.captain._id.toString() !== req.captain._id.toString()) {
-      console.log('CAPTAIN MISMATCH');
-
       return res.status(403).json({
         message: 'You are not authorized to complete this ride',
       });
@@ -325,16 +279,6 @@ module.exports.completeRide = async (req, res) => {
     ride.status = 'completed';
 
     await ride.save();
-
-    console.log('================================');
-
-    console.log('RIDE COMPLETED SUCCESSFULLY');
-
-    console.log('RIDE ID:', ride._id);
-
-    console.log('NEW STATUS:', ride.status);
-
-    console.log('================================');
 
     return res.status(200).json({
       success: true,
@@ -356,13 +300,7 @@ module.exports.completeRide = async (req, res) => {
 // ======================================================
 module.exports.getUserRides = async (req, res) => {
   try {
-    console.log('\n========== GET USER RIDES ==========');
-
     const { userId } = req.params;
-
-    console.log('REQUEST USER ID:', userId);
-
-    console.log('AUTH USER ID:', req.user?._id);
 
     if (!req.user?._id) {
       return res.status(401).json({
@@ -388,11 +326,7 @@ module.exports.getUserRides = async (req, res) => {
       .populate('user')
       .populate('captain');
 
-    console.log('RIDES FOUND:', rides.length);
-
-    rides.forEach((ride, index) => {
-      console.log(`${index + 1}.`, ride._id, '|', ride.status);
-    });
+    rides.forEach((ride, index) => {});
 
     return res.status(200).json({
       success: true,
