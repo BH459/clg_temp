@@ -49,65 +49,6 @@ module.exports.registerCaptain = async (req, res, next) => {
     });
 };
 
-// module.exports.loginCaptain = async (req, res) => {
-
-//     try {
-
-//         console.log("LOGIN BODY:", req.body);
-
-//         const errors = validationResult(req);
-
-//         if (!errors.isEmpty()) {
-//             return res.status(400).json({
-//                 errors: errors.array()
-//             });
-//         }
-
-//         const { email, password } = req.body;
-
-//         const captain = await captainModel
-//             .findOne({ email: email.toLowerCase() })
-//             .select("+password");
-
-//         console.log("CAPTAIN:", captain);
-
-//         if (!captain) {
-//             return res.status(401).json({
-//                 message: "Captain not found"
-//             });
-//         }
-
-//         const isMatch =
-//             await captain.comparePassword(password);
-
-//         console.log("PASSWORD MATCH:", isMatch);
-
-//         if (!isMatch) {
-//             return res.status(401).json({
-//                 message: "Password incorrect"
-//             });
-//         }
-
-//         const token =
-//             captain.generateAuthToken();
-
-//         res.status(200).json({
-//             token,
-//             captain
-//         });
-
-//     } catch (error) {
-
-//         console.log("LOGIN ERROR:", error);
-
-//         res.status(500).json({
-//             message: error.message
-//         });
-
-//     }
-
-// };
-
 module.exports.loginCaptain = async (req, res) => {
 
     try {
