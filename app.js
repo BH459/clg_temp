@@ -21,8 +21,8 @@ connectToDb();
 
 app.use(
     cors({
-        origin: "https://clg-frontend-temp.vercel.app",
-        credentials: true,
+        origin: true,
+        credentials: true
     })
 );
 
