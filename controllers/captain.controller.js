@@ -49,6 +49,65 @@ module.exports.registerCaptain = async (req, res, next) => {
     });
 };
 
+// module.exports.loginCaptain = async (req, res) => {
+
+//     try {
+
+//         console.log("LOGIN BODY:", req.body);
+
+//         const errors = validationResult(req);
+
+//         if (!errors.isEmpty()) {
+//             return res.status(400).json({
+//                 errors: errors.array()
+//             });
+//         }
+
+//         const { email, password } = req.body;
+
+//         const captain = await captainModel
+//             .findOne({ email: email.toLowerCase() })
+//             .select("+password");
+
+//         console.log("CAPTAIN:", captain);
+
+//         if (!captain) {
+//             return res.status(401).json({
+//                 message: "Captain not found"
+//             });
+//         }
+
+//         const isMatch =
+//             await captain.comparePassword(password);
+
+//         console.log("PASSWORD MATCH:", isMatch);
+
+//         if (!isMatch) {
+//             return res.status(401).json({
+//                 message: "Password incorrect"
+//             });
+//         }
+
+//         const token =
+//             captain.generateAuthToken();
+
+//         res.status(200).json({
+//             token,
+//             captain
+//         });
+
+//     } catch (error) {
+
+//         console.log("LOGIN ERROR:", error);
+
+//         res.status(500).json({
+//             message: error.message
+//         });
+
+//     }
+
+// };
+
 module.exports.loginCaptain = async (req, res) => {
 
     try {
@@ -66,17 +125,25 @@ module.exports.loginCaptain = async (req, res) => {
         const { email, password } = req.body;
 
         const captain = await captainModel
-            .findOne({ email: email.toLowerCase() })
+            .findOne({
+                email: email.toLowerCase().trim()
+            })
             .select("+password");
 
         console.log("CAPTAIN:", captain);
 
+        // ==========================================
+        // CAPTAIN NOT FOUND
+        // ==========================================
         if (!captain) {
             return res.status(401).json({
                 message: "Captain not found"
             });
         }
 
+        // ==========================================
+        // PASSWORD CHECK
+        // ==========================================
         const isMatch =
             await captain.comparePassword(password);
 
@@ -88,24 +155,57 @@ module.exports.loginCaptain = async (req, res) => {
             });
         }
 
-        const token =
-            captain.generateAuthToken();
+        // ==========================================
+        // ADMIN APPROVAL CHECK
+        // ==========================================
+        if (captain.isVerified !== true) {
+            return res.status(403).json({
+                message: "Your account is waiting for admin approval"
+            });
+        }
 
-        res.status(200).json({
-            token,
-            captain
+        // ==========================================
+        // ADMIN BLOCK CHECK
+        // ==========================================
+        if (captain.status === "inactive") {
+            return res.status(403).json({
+                message: "Admin has blocked your account"
+            });
+        }
+
+        // ==========================================
+        // ONLY VERIFIED + ACTIVE CAPTAIN CAN LOGIN
+        // ==========================================
+        if (
+            captain.isVerified === true &&
+            captain.status === "active"
+        ) {
+
+            const token =
+                captain.generateAuthToken();
+
+            return res.status(200).json({
+                message: "Captain login successful",
+                token,
+                captain
+            });
+        }
+
+        // ==========================================
+        // FALLBACK
+        // ==========================================
+        return res.status(403).json({
+            message: "Your account is not eligible for login"
         });
 
     } catch (error) {
 
         console.log("LOGIN ERROR:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             message: error.message
         });
-
     }
-
 };
 
 module.exports.getCaptainProfile = async (req, res, next) => {
