@@ -1,5 +1,6 @@
 const userModel = require('../models/user.model');
 const captainModel = require('../models/captain.model');
+const adminModel = require('../models/admin.model');
 const blacklistTokenModel = require('../models/blacklistToken.model');
 const jwt = require('jsonwebtoken');
 
@@ -98,7 +99,6 @@ module.exports.authCaptain = async (req, res, next) => {
       });
     }
 
-    // IMPORTANT
     req.captain = captain;
 
     console.log('CAPTAIN AUTH SUCCESS:', captain._id);
@@ -109,6 +109,104 @@ module.exports.authCaptain = async (req, res, next) => {
 
     return res.status(401).json({
       error: error.message,
+    });
+  }
+};
+
+// ===============================
+// ADMIN AUTH
+// ===============================
+module.exports.authAdmin = async (req, res, next) => {
+  try {
+    console.log('\n========== AUTH ADMIN ==========');
+
+    const token =
+      req.cookies?.adminToken || req.headers.authorization?.split(' ')[1];
+
+    console.log('ADMIN TOKEN EXISTS:', !!token);
+
+    // ==========================================
+    // NO TOKEN
+    // ==========================================
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Admin authentication required',
+      });
+    }
+
+    // ==========================================
+    // CHECK BLACKLIST
+    // ==========================================
+    const isBlacklisted = await blacklistTokenModel.findOne({ token });
+
+    console.log('ADMIN TOKEN BLACKLISTED:', !!isBlacklisted);
+
+    if (isBlacklisted) {
+      return res.status(401).json({
+        success: false,
+        message: 'Admin token has been revoked',
+      });
+    }
+
+    // ==========================================
+    // VERIFY JWT
+    // ==========================================
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log('ADMIN DECODED:', decoded);
+
+    // ==========================================
+    // CHECK ADMIN ROLE
+    // ==========================================
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin only.',
+      });
+    }
+
+    // ==========================================
+    // CHECK ADMIN IN DATABASE
+    // ==========================================
+    const admin = await adminModel.findById(decoded.id);
+
+    if (!admin) {
+      console.log('ADMIN NOT FOUND');
+
+      return res.status(401).json({
+        success: false,
+        message: 'Admin account not found',
+      });
+    }
+
+    // ==========================================
+    // ATTACH ADMIN TO REQUEST
+    // ==========================================
+    req.admin = admin;
+
+    console.log('ADMIN AUTH SUCCESS:', admin._id);
+
+    next();
+  } catch (error) {
+    console.error('AUTH ADMIN ERROR:', error.message);
+
+    // ==========================================
+    // JWT ERROR
+    // ==========================================
+    if (
+      error.name === 'JsonWebTokenError' ||
+      error.name === 'TokenExpiredError'
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired admin token',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Admin authentication failed',
     });
   }
 };

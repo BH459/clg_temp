@@ -13,6 +13,7 @@ const mapRoutes = require("./routes/maps.routes");
 const rideRoutes = require("./routes/ride.routes"); // NEW
 const paymentRoutes = require("./routes/payment.routes");
 const ratingRoutes = require("./routes/rating.routes");
+const adminRoutes = require("./routes/admin.routes");
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.get("/", (req, res) => {
 
 app.use("/users", userRoutes);
 app.use("/captains", captainRoutes);
+app.use("/admin", adminRoutes);
 app.use("/maps", mapRoutes);
 app.use("/rides", rideRoutes); // NEW
 app.use("/payments", paymentRoutes);
