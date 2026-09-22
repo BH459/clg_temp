@@ -14,8 +14,6 @@ const rideRoutes = require("./routes/ride.routes"); // NEW
 const paymentRoutes = require("./routes/payment.routes");
 const ratingRoutes = require("./routes/rating.routes");
 
-
-
 const app = express();
 
 connectToDb();

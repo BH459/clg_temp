@@ -1,41 +1,100 @@
-const express = require("express");
+const express = require('express');
+
 const router = express.Router();
 
-const { body, query } = require("express-validator");
+const { body, query } = require('express-validator');
 
-const authMiddleware = require("../middlewares/auth.middleware");
-const rideController = require("../controllers/ride.controller");
+const authMiddleware = require('../middlewares/auth.middleware');
 
-router.post(
-    "/create",
-    authMiddleware.authUser,
-    body("pickup").isString().isLength({ min: 3 }),
-    body("destination").isString().isLength({ min: 3 }),
-    body("vehicleType").isString(),
-    rideController.createRide
-);
+const rideController = require('../controllers/ride.controller');
 
+// ======================================================
+// USER RIDE HISTORY
+// ======================================================
 router.get(
-    "/get-fare",
-    authMiddleware.authUser,
-    query("pickup").isString().isLength({ min: 3 }),
-    query("destination").isString().isLength({ min: 3 }),
-    rideController.getFare
+  '/user/:userId',
+
+  authMiddleware.authUser,
+
+  rideController.getUserRides
 );
 
+// ======================================================
+// CREATE RIDE
+// ======================================================
 router.post(
-    "/accept",
-    authMiddleware.authCaptain,
-    body("rideId").isString(),
-    rideController.acceptRide
+  '/create',
+
+  authMiddleware.authUser,
+
+  body('pickup').isString().isLength({ min: 3 }),
+
+  body('destination').isString().isLength({ min: 3 }),
+
+  body('vehicleType').isString(),
+
+  rideController.createRide
 );
 
+// ======================================================
+// GET FARE
+// ======================================================
+router.get(
+  '/get-fare',
+
+  authMiddleware.authUser,
+
+  query('pickup').isString().isLength({ min: 3 }),
+
+  query('destination').isString().isLength({ min: 3 }),
+
+  query('vehicleType').optional().isString(),
+
+  rideController.getFare
+);
+
+// ======================================================
+// ACCEPT RIDE
+// ======================================================
 router.post(
-    "/verify-otp",
-    authMiddleware.authCaptain,
-    body("rideId").isString(),
-    body("otp").isLength({ min: 6, max: 6 }),
-    rideController.verifyOtp
+  '/accept',
+
+  authMiddleware.authCaptain,
+
+  body('rideId').isString(),
+
+  rideController.acceptRide
+);
+
+// ======================================================
+// VERIFY OTP
+// ======================================================
+router.post(
+  '/verify-otp',
+
+  authMiddleware.authCaptain,
+
+  body('rideId').isString(),
+
+  body('otp').isLength({
+    min: 6,
+    max: 6,
+  }),
+
+  rideController.verifyOtp
+);
+
+// ======================================================
+// COMPLETE RIDE
+// ======================================================
+router.post(
+  '/complete',
+
+  authMiddleware.authCaptain,
+
+  body('rideId').isString(),
+
+  rideController.completeRide
 );
 
 module.exports = router;
