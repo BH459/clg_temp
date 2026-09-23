@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 
 const rideService = require('../services/ride.service');
 const rideModel = require('../models/ride.model');
+const { sendMessageToSocketid } = require('../soket');
 
 // ======================================================
 // CREATE RIDE
@@ -338,6 +339,79 @@ module.exports.getUserRides = async (req, res) => {
 
     return res.status(500).json({
       success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ======================================================
+// CANCEL RIDE
+// A user can cancel their own ride while it is still
+// 'pending' or 'accepted' (not once it's ongoing/completed).
+// If a captain was already assigned, they're notified over
+// the socket so their UI can drop the ride immediately.
+// ======================================================
+module.exports.cancelRide = async (req, res) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      errors: errors.array(),
+    });
+  }
+
+  try {
+    const { rideId } = req.body;
+
+    if (!req.user?._id) {
+      return res.status(401).json({
+        message: 'User authentication missing',
+      });
+    }
+
+    const ride = await rideModel
+      .findById(rideId)
+      .populate('user')
+      .populate('captain');
+
+    if (!ride) {
+      return res.status(404).json({
+        message: 'Ride not found',
+      });
+    }
+
+    // Security: user can only cancel their own ride
+    if (ride.user?._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: 'You are not authorized to cancel this ride',
+      });
+    }
+
+    if (['ongoing', 'completed', 'cancelled'].includes(ride.status)) {
+      return res.status(400).json({
+        message: `Ride cannot be cancelled. Current status: ${ride.status}`,
+      });
+    }
+
+    ride.status = 'cancelled';
+    await ride.save();
+
+    // Let the assigned captain (if any) know in real time.
+    if (ride.captain?.socketId) {
+      sendMessageToSocketid(ride.captain.socketId, 'ride-cancelled', {
+        ride,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Ride cancelled',
+      ride,
+    });
+  } catch (error) {
+    console.error('CANCEL RIDE ERROR:', error);
+
+    return res.status(500).json({
       message: error.message,
     });
   }

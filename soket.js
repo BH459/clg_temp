@@ -8,6 +8,20 @@ let io;
 
 const MAX_DISTANCE_KM = 30;
 
+// Single source of truth for valid vehicle types — must stay in sync with
+// the enum in Captain.vehicle.vehicleType and Ride.vehicleType.
+const VALID_VEHICLE_TYPES = ['car', 'moto', 'auto', 'crane'];
+
+function normalizeVehicleType(vehicleType) {
+  if (!vehicleType || typeof vehicleType !== 'string') {
+    return null;
+  }
+
+  const normalized = vehicleType.trim().toLowerCase();
+
+  return VALID_VEHICLE_TYPES.includes(normalized) ? normalized : null;
+}
+
 function calculateDistanceInKm(lat1, lon1, lat2, lon2) {
   const toRad = (value) => (value * Math.PI) / 180;
   const R = 6371;
@@ -112,23 +126,69 @@ function initializeSoket(server) {
       io.to(userId.toString()).emit(eventName, data);
     });
 
+    // ===============================================================
+    // RIDE REQUEST
+    // Only broadcasts to captains whose vehicle.vehicleType matches
+    // the ride's requested vehicleType (car -> car, auto -> auto,
+    // moto -> moto, crane -> crane). Captains must also be 'active'
+    // (i.e. online) and have a live socketId.
+    // ===============================================================
     socket.on('ride-request', async ({ ride, otp }) => {
       try {
         if (!ride?.pickup || !ride?._id) {
+          console.error('ride-request rejected: missing pickup or ride id', {
+            rideId: ride?._id,
+          });
+          return;
+        }
+
+        const requestedVehicleType = normalizeVehicleType(ride.vehicleType);
+
+        if (!requestedVehicleType) {
+          console.error('ride-request rejected: invalid/missing vehicleType', {
+            rideId: ride._id,
+            receivedVehicleType: ride.vehicleType,
+          });
           return;
         }
 
         const pickupCoordinates = await mapService.getAddressCoordinate(
           ride.pickup
         );
-        const captains = await Captain.find({ status: 'active' });
+
+        // Only pull online captains driving the matching vehicle type.
+        // This is the key fix: filtering happens at the query level so
+        // a moto captain never even gets considered for a car ride.
+        const captains = await Captain.find({
+          status: 'active',
+          'vehicle.vehicleType': requestedVehicleType,
+        });
+
+        console.log(
+          `ride-request [${ride._id}] wants "${requestedVehicleType}" — ${captains.length} online captain(s) with matching vehicle type found`
+        );
+
+        let notifiedCount = 0;
 
         for (const captain of captains) {
-          if (
-            captain.location?.lat == null ||
-            captain.location?.lng == null ||
-            !captain.socketId
-          ) {
+          const captainVehicleType = normalizeVehicleType(
+            captain.vehicle?.vehicleType
+          );
+
+          if (!captain.socketId) {
+            continue;
+          }
+
+          if (captain.location?.lat == null || captain.location?.lng == null) {
+            continue;
+          }
+
+          // Defensive re-check even though the query already filtered on
+          // vehicle.vehicleType, in case of stale/mixed-case data.
+          if (captainVehicleType !== requestedVehicleType) {
+            console.log(
+              `  skip captain ${captain._id}: vehicleType mismatch (captain="${captain.vehicle?.vehicleType}", requested="${requestedVehicleType}")`
+            );
             continue;
           }
 
@@ -139,29 +199,36 @@ function initializeSoket(server) {
             pickupCoordinates.lng
           );
 
+          console.log(
+            `  captain ${captain._id} (${captainVehicleType}) distance=${distance.toFixed(
+              2
+            )}km`
+          );
+
           if (distance <= MAX_DISTANCE_KM) {
             io.to(captain.socketId).emit('new-ride-request', {
               ride: {
                 ...ride,
+                vehicleType: requestedVehicleType,
                 otp: otp || ride.otp,
               },
               pickupCoordinates,
               distance,
             });
+
+            notifiedCount += 1;
           }
         }
+
+        console.log(
+          `ride-request [${ride._id}] notified ${notifiedCount} captain(s) within ${MAX_DISTANCE_KM}km`
+        );
       } catch (error) {
         console.error('Error handling ride request:', error.message);
       }
     });
 
     socket.on('ride-accepted', async ({ rideId, userId, captainId }) => {
-      console.log({
-        rideId,
-        userId,
-        captainId,
-      });
-
       try {
         if (!rideId || !userId || !captainId) {
           return;
@@ -173,6 +240,29 @@ function initializeSoket(server) {
           .populate('captain');
 
         if (!ride) {
+          console.error('ride-accepted: ride not found', { rideId });
+          return;
+        }
+
+        const captain = await Captain.findById(captainId);
+
+        // Guard against a captain accepting a ride whose vehicleType they
+        // don't actually drive (e.g. a stale client, or two captains
+        // racing to accept at once).
+        const rideVehicleType = normalizeVehicleType(ride.vehicleType);
+        const captainVehicleType = normalizeVehicleType(
+          captain?.vehicle?.vehicleType
+        );
+
+        if (
+          rideVehicleType &&
+          captainVehicleType &&
+          rideVehicleType !== captainVehicleType
+        ) {
+          console.error(
+            `ride-accepted rejected: vehicleType mismatch (ride="${rideVehicleType}", captain="${captainVehicleType}")`,
+            { rideId, captainId }
+          );
           return;
         }
 
@@ -196,15 +286,17 @@ function initializeSoket(server) {
         const user = await User.findById(userId);
 
         if (user?.socketId) {
-          console.log('Sending accepted ride to user socket:', user.socketId);
-
           io.to(user.socketId).emit('ride-accepted', payload);
         } else {
+          console.log('ride-accepted: user has no active socketId', {
+            userId,
+          });
         }
       } catch (error) {
         console.error('Error accepting ride:', error.message);
       }
     });
+
     socket.on('ride-started', async ({ rideId }) => {
       try {
         const ride = await Ride.findByIdAndUpdate(
@@ -220,32 +312,22 @@ function initializeSoket(server) {
           .populate('captain');
 
         if (!ride) {
+          console.error('ride-started: ride not found', { rideId });
           return;
         }
 
-        console.log('User Socket:', ride.user?.socketId);
-
-        console.log('Captain Socket:', ride.captain?.socketId);
-
         if (ride.user?.socketId) {
-          io.to(ride.user.socketId).emit('ride-started', {
-            ride,
-          });
-
-          console.log('ride-started sent to user');
+          io.to(ride.user.socketId).emit('ride-started', { ride });
         }
 
         if (ride.captain?.socketId) {
-          io.to(ride.captain.socketId).emit('ride-started', {
-            ride,
-          });
-
-          console.log('ride-started sent to captain');
+          io.to(ride.captain.socketId).emit('ride-started', { ride });
         }
       } catch (error) {
-        console.log('Ride Started Error:', error.message);
+        console.error('Ride Started Error:', error.message);
       }
     });
+
     socket.on('disconnect', async () => {
       try {
         await User.findOneAndUpdate(

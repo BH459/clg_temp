@@ -97,4 +97,17 @@ router.post(
   rideController.completeRide
 );
 
+// ======================================================
+// CANCEL RIDE
+// ======================================================
+router.post(
+  '/cancel',
+
+  authMiddleware.authUser,
+
+  body('rideId').isString(),
+
+  rideController.cancelRide
+);
+
 module.exports = router;
